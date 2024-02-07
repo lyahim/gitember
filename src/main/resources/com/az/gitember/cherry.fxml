@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane fx:id="mainBorderPanel" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="768.0"
+            prefWidth="1024.0" xmlns="http://javafx.com/javafx/8.0.65" xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="com.az.gitember.controller.CherryController">
+    <top>
+        <ToolBar>
+        	<TextField fx:id="commitCount" promptText="Commit count" />
+        	<Button text="Update" onAction="#refreshCommitsClickHandler" />
+            <Pane HBox.hgrow="ALWAYS"></Pane>
+            <TextField fx:id="searchText" promptText="Search" />
+        </ToolBar>
+
+    </top>
+    <center>
+ 		<SplitPane fx:id="splitPanel" orientation="VERTICAL">   
+	 		<AnchorPane fx:id="hostCherryViewPanel"  minHeight="150" minWidth="0.0" maxHeight="Infinity" prefHeight="500.0" prefWidth="820.0" >
+				<children>
+			        <TableView fx:id="commitsTableView"  layoutX="333.0" layoutY="152.0" prefHeight="600.0"
+			                   prefWidth="800.0" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0"
+			                   AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" fixedCellSize="40">
+			            <columns>
+			                <TableColumn fx:id="laneTableColumn" sortable="false" prefWidth="200.0" style="-fx-border-width: 0; -fx-padding: 0 0 0 0;" text="" />
+			                <TableColumn fx:id="mergedTableColumn" sortable="false" text="Merged" />
+			                <TableColumn fx:id="messageTableColumn" sortable="false" prefWidth="400.0" text="Message" />
+			                <TableColumn fx:id="authorTableColumn" sortable="false"  text="Author" />
+			                <TableColumn fx:id="dateTableColumn" sortable="false"  text="Date" />
+			                <TableColumn fx:id="shaTableColumn" sortable="false"  text="Sha" />
+			                <TableColumn fx:id="refTableColumn" sortable="false"  text="Ref" />
+			            </columns>
+			            <contextMenu>
+			                <ContextMenu >
+			                    <items>
+			                        <MenuItem  mnemonicParsing="false"  onAction="#cherryPickMenuItemClickHandler" text="Cherry pick ..." />
+			                    </items>
+			                </ContextMenu>
+			            </contextMenu>
+	        		</TableView>
+	            </children>
+			</AnchorPane>
+        </SplitPane>
+	</center>
+</BorderPane>

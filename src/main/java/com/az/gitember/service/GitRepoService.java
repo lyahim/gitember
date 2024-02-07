@@ -3,9 +3,30 @@ package com.az.gitember.service;
 import com.az.gitember.data.*;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.jgit.api.*;
+import org.eclipse.jgit.api.BlameCommand;
+import org.eclipse.jgit.api.CheckoutCommand;
+import org.eclipse.jgit.api.CherryPickCommand;
+import org.eclipse.jgit.api.CherryPickResult;
+import org.eclipse.jgit.api.CloneCommand;
+import org.eclipse.jgit.api.CommitCommand;
+import org.eclipse.jgit.api.CreateBranchCommand;
+import org.eclipse.jgit.api.DiffCommand;
+import org.eclipse.jgit.api.FetchCommand;
+import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.ListBranchCommand;
+import org.eclipse.jgit.api.LogCommand;
+import org.eclipse.jgit.api.MergeResult;
+import org.eclipse.jgit.api.PullCommand;
+import org.eclipse.jgit.api.PullResult;
+import org.eclipse.jgit.api.PushCommand;
+import org.eclipse.jgit.api.RebaseResult;
+import org.eclipse.jgit.api.RemoteSetUrlCommand;
+import org.eclipse.jgit.api.Status;
+import org.eclipse.jgit.api.TransportCommand;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.api.errors.NoHeadException;
 import org.eclipse.jgit.api.errors.TransportException;
+import org.eclipse.jgit.api2.*;
 import org.eclipse.jgit.attributes.FilterCommandRegistry;
 import org.eclipse.jgit.blame.BlameResult;
 import org.eclipse.jgit.diff.DiffEntry;
@@ -408,6 +429,19 @@ public class GitRepoService {
             }
         }
     }
+    
+
+    public Map<RevCommit, Boolean> cherry( final String headBranchName, final String upstreamBranchName, Long limit,
+                                      final ProgressMonitor progressMonitor) throws IOException {
+            try {
+            	CherryCommand cherry = new CherryCommand(repository);
+            	return cherry.setHead(headBranchName).setUpstream(upstreamBranchName).call();
+
+            } catch (GitAPIException e) {
+                throw new IOException("Cannot do cherry between " + upstreamBranchName + " and " + headBranchName, e);
+            }
+    }
+
 
     private static AbstractTreeIterator prepareTreeParser(Repository repository, String ref) throws IOException {
         // from the commit we can build the tree which allows us to construct the TreeParser

@@ -4,12 +4,17 @@ import com.az.gitember.controller.handlers.*;
 import com.az.gitember.data.ScmBranch;
 import com.az.gitember.data.ScmRevisionInformation;
 import com.az.gitember.service.Context;
+
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BiFunction;
 
 public class MainTreeContextMenuFactory {
 
@@ -78,24 +83,35 @@ public class MainTreeContextMenuFactory {
         int totalBranches = Context.localBrancesProperty.get().size() +
                 Context.remoteBrancesProperty.get().size();
         if (totalBranches > 1) { // need at least 2 branches to create diff
-            Menu branchDiffMI = new Menu("Diff with");
-            fillDiff(branchDiffMI, Context.localBrancesProperty.get(), branchItem.getFullName());
-            fillDiff(branchDiffMI, Context.remoteBrancesProperty.get(), branchItem.getFullName());
-            cm.getItems().add(new SeparatorMenuItem());
-            cm.getItems().add(branchDiffMI);
+			Menu branchDiffMI = new Menu("Diff with");
+			List<ScmBranch> branches = new ArrayList<>(Context.localBrancesProperty.get());
+			branches.addAll(Context.remoteBrancesProperty.get());
+			fillBranchList(branchDiffMI, branches, branchItem.getFullName(),
+					(branchName, rightBranchName) -> new BranchDiffEventHandler(branchName, rightBranchName));
+			cm.getItems().add(new SeparatorMenuItem());
+			cm.getItems().add(branchDiffMI);
         }
+        
+        if(Context.localBrancesProperty.get().size() > 1 && Context.localBrancesProperty.get().contains(branchItem)) {
+			Menu branchCherryMI = new Menu("Cherry with");
+			fillBranchList(branchCherryMI, Context.localBrancesProperty.get(), branchItem.getFullName(),
+					(branchName, rightBranchName) -> new CherryEventHandler(branchName, rightBranchName, 100));
+			cm.getItems().add(branchCherryMI);
+        }
+        
         return cm;
     }
 
 
-    private void fillDiff(Menu branchDiffMI, List<ScmBranch> scmBranches, String branchName) {
+    private void fillBranchList(Menu menuItem, List<ScmBranch> scmBranches, String branchName, BiFunction<String, String, EventHandler<ActionEvent>> actionHandler) {
         scmBranches.stream()
                 .filter( br -> !br.getFullName().equals(branchName))
                 .forEach(br -> {
                     String rightBranchName = br.getFullName();
                     MenuItem mi = new MenuItem(rightBranchName);
-                    mi.setOnAction(new BranchDiffEventHandler(branchName, rightBranchName));
-                    branchDiffMI.getItems().add(mi);
+                    mi.setOnAction(actionHandler.apply(branchName, rightBranchName));
+                    menuItem.getItems().add(mi);
+                    
                 });
     }
 

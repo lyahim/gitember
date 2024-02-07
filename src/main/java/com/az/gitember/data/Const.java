@@ -25,6 +25,7 @@ public interface Const {
     }
 
     interface View {
+    	String CHERRY = "cherry";
         String BRANCH_DIFF = "branchdiff";
         String FILE_DIFF = "diffviewer";
         String EDITOR = "editor";
