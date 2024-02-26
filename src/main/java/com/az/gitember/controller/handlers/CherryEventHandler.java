@@ -45,10 +45,10 @@ public class CherryEventHandler extends AbstractLongTaskEventHandler implements 
 //	                    updateTitle(t);
 //	                    updateProgress(d, 1.0);
 //	                }));
-                	System.out.println(Context.getGitRepoService().branchDiff(upstreamBranchName, headBranchName, new DefaultProgressMonitor((t, d) -> {
+                	Context.getGitRepoService().cherry(upstreamBranchName, headBranchName, limit, new DefaultProgressMonitor((t, d) -> {
 	                    updateTitle(t);
 	                    updateProgress(d, 1.0);
-	                })));
+	                }));
             	}catch(Exception e) {
             		LOG.severe(e.getMessage());
             	}

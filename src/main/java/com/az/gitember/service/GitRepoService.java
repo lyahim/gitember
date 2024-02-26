@@ -1,6 +1,9 @@
 package com.az.gitember.service;
 
 import com.az.gitember.data.*;
+import com.az.gitember.data.ScmItem.BODY_TYPE;
+import com.google.common.collect.Comparators;
+
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jgit.api.BlameCommand;
@@ -72,6 +75,7 @@ import java.nio.file.StandardOpenOption;
 import java.text.MessageFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -431,15 +435,86 @@ public class GitRepoService {
     }
     
 
-    public Map<RevCommit, Boolean> cherry( final String headBranchName, final String upstreamBranchName, Long limit,
+    public Map<RevCommit, Boolean> cherry( final String headBranchName, final String upstreamBranchName, int limit,
                                       final ProgressMonitor progressMonitor) throws IOException {
-            try {
-            	CherryCommand cherry = new CherryCommand(repository);
-            	return cherry.setHead(headBranchName).setUpstream(upstreamBranchName).call();
-
-            } catch (GitAPIException e) {
-                throw new IOException("Cannot do cherry between " + upstreamBranchName + " and " + headBranchName, e);
+    	System.out.println(upstreamBranchName + " -> " + headBranchName);
+    	PlotCommitList<PlotLane> upstreamCommits = getCommitsByTree(upstreamBranchName, false, limit, progressMonitor);
+    	PlotCommitList<PlotLane> headCommits = getCommitsByTree(headBranchName, false, limit, progressMonitor);
+    	
+    	Map<RevCommit, List<ScmItem>> upstreamChanges = getChangesForCommits(upstreamCommits, progressMonitor);
+    	Map<RevCommit, List<ScmItem>> headChanges = getChangesForCommits(headCommits, progressMonitor);
+    	
+        if (progressMonitor != null) {
+            progressMonitor.beginTask("Cherry branches", upstreamCommits.size());
+        }
+    	int idx = 0;
+    	for(PlotCommit<PlotLane> commit : upstreamCommits) {
+            if (progressMonitor != null) {
+                idx++;
+                progressMonitor.update(idx);
             }
+            
+            List<ScmItem> changeList = upstreamChanges.get(commit.getId());
+            RevCommit matchedCommit = headChanges.entrySet().stream().filter(entry -> {
+            	List<ScmItem> headList = entry.getValue();
+            	boolean equals = headList.equals(changeList);
+            	
+            	if(equals) {
+            		List<String> headFileChanges = getRawChangeList(headList);
+            		List<String> upstreamFileChanges = getRawChangeList(changeList);
+            		
+            		Collections.sort(headFileChanges);
+            		Collections.sort(upstreamFileChanges);
+            		
+            		equals = headFileChanges.equals(upstreamFileChanges);
+            	}
+            	
+            	return equals;
+            }).map(Entry::getKey).findFirst().orElse(null);
+            
+            if (matchedCommit != null) {
+            	System.out.println(commit.getId()+" exists " + matchedCommit.getId());
+            }else { 
+            	System.out.println(commit.getId() + " missing, " + commit.getShortMessage());
+            }
+    	}
+        if (progressMonitor != null) {
+            progressMonitor.endTask();
+        }
+        
+    	return null;
+    }
+
+	private List<String> getRawChangeList(List<ScmItem> changeList) {
+		return changeList.stream().map(i -> {
+			try {
+				return new String(i.getBody(BODY_TYPE.RAW_DIFF));
+			} catch (IOException e) {
+				log.severe(e.getMessage());
+			}
+			return null;
+		}).collect(Collectors.toList());
+	}
+    
+    private Map<RevCommit, List<ScmItem>> getChangesForCommits(PlotCommitList<PlotLane> commits, final ProgressMonitor progressMonitor){
+    	Map<RevCommit, List<ScmItem>> retMap = new HashMap<>();
+        if (progressMonitor != null) {
+            progressMonitor.beginTask("Get changes for commits", commits.size());
+        }
+    	int idx = 0;
+    	for(PlotCommit<PlotLane> commit : commits) {
+            if (progressMonitor != null) {
+                idx++;
+                progressMonitor.update(idx);
+            }
+            List<ScmItem> changes = getScmItems(commit, null);
+            
+            retMap.put(commit, changes);
+    	}
+        if (progressMonitor != null) {
+            progressMonitor.endTask();
+        }
+    	return retMap;
     }
 
 
