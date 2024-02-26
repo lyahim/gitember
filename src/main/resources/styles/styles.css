@@ -20,6 +20,9 @@
     -fx-background-color: #97a7fa;
 }
 
+.diff-active {
+    -fx-effect: dropshadow(three-pass-box, grey, 10, 0, 0, 10);
+}
 
 .root {
     -fx-font-size: 12pt ;
@@ -28,4 +31,14 @@
 
 .overview-border {
     -fx-border-color: white;
+}
+
+.noheader .column-header-background {
+    -fx-max-height: 0;
+    -fx-pref-height: 0;
+    -fx-min-height: 0;
+}
+
+.alternate_row_color {
+    -fx-background-color: #dddddd;
 }
