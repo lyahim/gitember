@@ -15,6 +15,8 @@ import javafx.scene.control.*;
 import javafx.scene.layout.AnchorPane;
 import javafx.stage.DirectoryChooser;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.kordamp.ikonli.javafx.FontIcon;
+import org.kordamp.ikonli.javafx.StackedFontIcon;
 
 import java.io.File;
 import java.io.IOException;
@@ -60,6 +62,10 @@ public class Main implements Initializable {
     public TreeItem localBranchesTreeItem;
     public TreeItem remoteBranchesTreeItem;
     public TreeItem tagsTreeItem;
+    public Label aheadIconQty;
+    public Label behindIconQty;
+    public StackedFontIcon aheadIcon;
+    public StackedFontIcon behindIcon;
 
 
     /**
@@ -88,20 +94,39 @@ public class Main implements Initializable {
                                     + ScmBranch.getNameSafe(scmBranch));
                     pushBtn.setDisable(remUrl == null || false);
                     pushBtn.setTooltip(new Tooltip("Push " + ScmBranch.getNameExtSafe(scmBranch)));
+                    if (!pushBtn.isDisable()) {
+                        scmBranch.getScmBranchPushTooltip().ifPresent(
+                                t -> {
+                                    pushBtn.setTooltip(
+                                            new Tooltip(
+                                                    "Push " + ScmBranch.getNameExtSafe(scmBranch)
+                                                    + ". " + t
+                                            )
+                                    );
+                                }
+                        );
+                    }
 
 
                     pullBtn.setDisable(remUrl == null || newValue.getRemoteMergeName() == null);
-
-                    if (pullBtn.isDisable()) {
-                        pullBtn.setTooltip(new Tooltip());
-                    } else {
-                        pullBtn.setTooltip(new Tooltip("Pull " + ScmBranch.getNameExtSafe(scmBranch)));
+                    pullBtn.setTooltip(new Tooltip("Pull " + ScmBranch.getNameExtSafe(scmBranch)));
+                    if (!pullBtn.isDisable()) {
+                        scmBranch.getScmBranchPullTooltip().ifPresent(
+                                t -> {
+                                    pullBtn.setTooltip(new Tooltip(
+                                            "Pull " + ScmBranch.getNameExtSafe(scmBranch)
+                                                    + ". " + t
+                                    ));
+                                }
+                        );
                     }
 
                     puchMenuItem.setDisable(pushBtn.isDisable());
                     pullMenuItem.setDisable(pullBtn.isDisable());
 
                     fetchBtn.setTooltip(new Tooltip("Fetch all"));
+
+                    updateButtonUI();
 
 
                 }
@@ -222,6 +247,16 @@ public class Main implements Initializable {
         });
     }
 
+    public void updateButtonUI() {
+        ScmBranch scmBranch = Context.workingBranch.getValue();
+        int aheadQty = scmBranch.getAheadCount();
+        int behindQty = scmBranch.getBehindCount();
+        aheadIconQty.setText(String.valueOf(aheadQty));
+        behindIconQty.setText(String.valueOf(behindQty));
+        aheadIcon.setVisible(aheadQty > 0);
+        behindIcon.setVisible(behindQty > 0);
+    }
+
 
     /**
      * Open repository.
@@ -246,6 +281,8 @@ public class Main implements Initializable {
     public void fetchHandler(ActionEvent actionEvent) {
         RemoteRepoParameters repoParameters = new RemoteRepoParameters();
         new FetchEventHandler(repoParameters, null).handle(actionEvent);
+        final ScmBranch scmBranch = Context.workingBranch.get();
+        updateButtonUI();
     }
 
     public void largeFileSupportHandler(ActionEvent actionEvent) throws IOException {
@@ -340,11 +377,9 @@ public class Main implements Initializable {
     public void pullHandler(ActionEvent actionEvent) {
         final ScmBranch scmBranch = Context.workingBranch.get();
         new PullHandler(scmBranch).handle(actionEvent);
-
     }
 
     public void pushHandler(ActionEvent actionEvent) {
-
         final ScmBranch scmBranch = Context.workingBranch.get();
         new PushHandler(scmBranch).handle(actionEvent);
     }

@@ -25,8 +25,8 @@ public class GitemberLineNumberFactory implements IntFunction<Node> {
     private final BlameResult blame;
     private final int maxLen;
 
-    public static IntFunction<Node> get(StyledTextArea<?, ?> area, TextToSpanContentAdapter textAdapter, BlameResult blame) {
-        return get(area, digits -> "%0" + digits + "d %s", textAdapter, blame);
+    public static IntFunction<Node> get(StyledTextArea<?, ?> area, TextToSpanContentAdapter textAdapter, BlameResult blame, int activeParagraph) {
+        return get(area, digits -> "%0" + digits + "d %s", textAdapter, blame, activeParagraph);
     }
 
     private static int getMaxLen(BlameResult blame) {
@@ -48,22 +48,26 @@ public class GitemberLineNumberFactory implements IntFunction<Node> {
             StyledTextArea<?, ?> area,
             IntFunction<String> format,
             TextToSpanContentAdapter textAdapter,
-            BlameResult blame) {
-        return new GitemberLineNumberFactory(area, format, textAdapter, blame);
+            BlameResult blame,
+            int activeParagraph) {
+        return new GitemberLineNumberFactory(area, format, textAdapter, blame, activeParagraph);
     }
 
     private final Val<Integer> nParagraphs;
     private final IntFunction<String> format;
     private final int maxDigits;
+    private final int activeParagraph;
     private final StyledTextArea<?, ?> area;
 
     private GitemberLineNumberFactory(
             StyledTextArea<?, ?> area,
             IntFunction<String> format,
             TextToSpanContentAdapter textAdapter,
-            BlameResult blame) {
+            BlameResult blame,
+            int activeParagraph) {
         this.nParagraphs = LiveList.sizeOf(area.getParagraphs());
         this.format = format;
+        this.activeParagraph = activeParagraph;
         this.maxDigits = String.valueOf(nParagraphs.getOrElse(1)).length();
         this.textAdapter = textAdapter;
         this.area = area;
@@ -85,7 +89,7 @@ public class GitemberLineNumberFactory implements IntFunction<Node> {
 
         Label lineNo = new Label();
         if (blame != null) {
-            int width = maxLen * 11;
+            int width = maxLen * 20;
             lineNo.setMaxWidth(width);
             lineNo.setMinWidth(width);
             lineNo.setPrefWidth(width);
@@ -95,7 +99,7 @@ public class GitemberLineNumberFactory implements IntFunction<Node> {
         lineNo.setPadding(DEFAULT_INSETS);
 
         applyStyle(lineNo, textAdapter.getDiffDecoration(area.getText()).get(idx));
-        applyStyle(lineNo, textAdapter.getDecorateByPatch().get(idx));
+        applyStyle(lineNo, textAdapter.getDecorateByPatch(activeParagraph).get(idx));
 
         lineNo.textProperty().bind(formatted.conditionOnShowing(lineNo));
         return lineNo;
@@ -106,7 +110,8 @@ public class GitemberLineNumberFactory implements IntFunction<Node> {
         if (blame != null && blame.getResultContents() != null) {
             try {
                 if (blame.getSourceCommit(lineIdx) != null) {
-                    author =  " " + GitemberUtil.formatDateOnly(GitemberUtil.intToDate(blame.getSourceCommit(lineIdx).getCommitTime()))
+                    author =  " " + GitemberUtil.formatDateOnlyShort(
+                            GitemberUtil.intToDate(blame.getSourceCommit(lineIdx).getCommitTime()))
                             + " " + blame.getSourceAuthor(lineIdx).getName();
                 }
             } catch (Exception e) {}
@@ -117,7 +122,7 @@ public class GitemberLineNumberFactory implements IntFunction<Node> {
     private void applyStyle(Label lineNo, List<String> style) {
         if (style != null) {
             lineNo.setStyle("");
-            lineNo.getStyleClass().add(style.get(0));
+            lineNo.getStyleClass().addAll(style);
         }
     }
 

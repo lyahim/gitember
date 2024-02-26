@@ -24,12 +24,15 @@ public class TextToSpanContentAdapter {
     private EditList patch = null;
     private boolean leftSide;
 
+    private StyleSpans<Collection<String>> highlightingByKeywords = null;
+
     /**
      * @param extension The file extension
      * @param patch     patch
      * @param leftSide  what side ro read left - old, right - new
      */
-    public TextToSpanContentAdapter(final String extension, final EditList patch, boolean leftSide) {
+    public TextToSpanContentAdapter(final String extension, final EditList patch,
+                                    boolean leftSide, int activeParagraph) {
         this(extension, false);
         this.patch = patch;
         this.leftSide = leftSide;
@@ -52,27 +55,27 @@ public class TextToSpanContentAdapter {
         final Iterator<Token> tokenIterator = parsedCode.iterator();
         // TODO looks ugly , refactor
         if (tokenIterator.hasNext() && content.length() > 0) {
-            Token token = tokenIterator.next();
-            final BaseTokenTypeAdapter adapter = langResolver.getAdapter();
-            for (int i = 0; i < content.length(); i++) {
-                int startIdx = token.getStartIndex();
-                int stopIdx = token.getStopIndex() + 1;
+            if (highlightingByKeywords == null) {
+                Token token = tokenIterator.next();
+                final BaseTokenTypeAdapter adapter = langResolver.getAdapter();
+                for (int i = 0; i < content.length(); i++) {
+                    int startIdx = token.getStartIndex();
+                    int stopIdx = token.getStopIndex() + 1;
 
-                if (i == token.getStartIndex()) {
-                    int len = startIdx - lastKwEnd;
-                    spansBuilder.add(Collections.emptyList(), len);
+                    if (i == token.getStartIndex()) {
+                        int len = startIdx - lastKwEnd;
+                        spansBuilder.add(Collections.emptyList(), len);
 
-                    final String style = adapter.adaptToStyleClass(token.getType());
-                    spansBuilder.add(Collections.singletonList(style), stopIdx - startIdx);
-                    lastKwEnd = stopIdx;
-                    token = tokenIterator.next();
+                        final String style = adapter.adaptToStyleClass(token.getType());
+                        spansBuilder.add(Collections.singletonList(style), stopIdx - startIdx);
+                        lastKwEnd = stopIdx;
+                        token = tokenIterator.next();
 
+                    }
                 }
+                highlightingByKeywords = spansBuilder.create();
             }
-
-            StyleSpans<Collection<String>> rez = spansBuilder.create();
-            return rez;
-
+            return highlightingByKeywords;
         }
         return null ;
     }
@@ -112,14 +115,16 @@ public class TextToSpanContentAdapter {
     /**
      * Highlight new , deleted and changed lines by patch.
      */
-    public Map<Integer, List<String>> getDecorateByPatch() {
-        if (pathcDecoration == null) {
+
+    public Map<Integer, List<String>> getDecorateByPatch(int activeParagraph) {
+        if (pathcDecoration == null || activeParagraph > -1) {
 
             if (patch == null) {
                 pathcDecoration = Collections.EMPTY_MAP;
             } else {
                 pathcDecoration = new HashMap<>();
-                for (Edit delta : patch) {
+                for (int i = 0; i < patch.size(); i++) {
+                    Edit delta = patch.get(i);
                     int origPos = delta.getBeginB();
                     int origLines = delta.getLengthB();
                     String styleClass = GitemberUtil.getDiffSyleClass(delta, "diff-line");
@@ -129,12 +134,15 @@ public class TextToSpanContentAdapter {
                     }
 
                     for (int line = origPos; line < (origLines + origPos); line++) {
-                        pathcDecoration.put(line, Collections.singletonList(styleClass));
+                        if (activeParagraph == i) {
+                            pathcDecoration.put(line, List.of(styleClass, "diff-active"));
+                        } else {
+                            pathcDecoration.put(line, Collections.singletonList(styleClass));
+                        }
                     }
+
                 }
-
             }
-
         }
         return pathcDecoration;
     }
