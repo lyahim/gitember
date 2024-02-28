@@ -34,9 +34,9 @@
 			                <TableColumn fx:id="refTableColumn" sortable="false"  text="Ref" />
 			            </columns>
 			            <contextMenu>
-			                <ContextMenu >
+			                <ContextMenu fx:id="cherryMenu">
 			                    <items>
-			                        <MenuItem  mnemonicParsing="false"  onAction="#cherryPickMenuItemClickHandler" text="Cherry pick ..." />
+			                        <MenuItem mnemonicParsing="false"  onAction="#cherryPickMenuItemClickHandler" text="Cherry pick ..." />
 			                    </items>
 			                </ContextMenu>
 			            </contextMenu>

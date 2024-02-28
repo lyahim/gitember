@@ -435,58 +435,85 @@ public class GitRepoService {
     }
     
 
-    public Map<RevCommit, Boolean> cherry( final String headBranchName, final String upstreamBranchName, int limit,
+    public Map<ObjectId, ObjectId> cherry( final String headBranchName, final String upstreamBranchName, int limit,
                                       final ProgressMonitor progressMonitor) throws IOException {
-    	System.out.println(upstreamBranchName + " -> " + headBranchName);
+    	System.out.println(headBranchName + " -> " + upstreamBranchName);
     	PlotCommitList<PlotLane> upstreamCommits = getCommitsByTree(upstreamBranchName, false, limit, progressMonitor);
     	PlotCommitList<PlotLane> headCommits = getCommitsByTree(headBranchName, false, limit, progressMonitor);
     	
     	Map<RevCommit, List<ScmItem>> upstreamChanges = getChangesForCommits(upstreamCommits, progressMonitor);
     	Map<RevCommit, List<ScmItem>> headChanges = getChangesForCommits(headCommits, progressMonitor);
     	
+    	Map<ObjectId, ObjectId> result = new HashMap<>();
+    	
         if (progressMonitor != null) {
-            progressMonitor.beginTask("Cherry branches", upstreamCommits.size());
+            progressMonitor.beginTask("Cherry branches", headCommits.size());
         }
     	int idx = 0;
-    	for(PlotCommit<PlotLane> commit : upstreamCommits) {
+    	for(PlotCommit<PlotLane> commit : headCommits) {
             if (progressMonitor != null) {
                 idx++;
                 progressMonitor.update(idx);
             }
             
-            List<ScmItem> changeList = upstreamChanges.get(commit.getId());
-            RevCommit matchedCommit = headChanges.entrySet().stream().filter(entry -> {
-            	List<ScmItem> headList = entry.getValue();
-            	boolean equals = headList.equals(changeList);
+            List<ScmItem> changeList = headChanges.get(commit.getId());
+    		
+            RevCommit matchedCommit = upstreamChanges.entrySet().stream().filter(entry -> {
+            	List<ScmItem> upstreamList = entry.getValue();
+            	boolean equals = upstreamList.equals(changeList);
             	
-            	if(equals) {
-            		List<String> headFileChanges = getRawChangeList(headList);
-            		List<String> upstreamFileChanges = getRawChangeList(changeList);
+            	if(equals) { // shortcut before complex analysis
+            		List<String> upstreamFileChanges = getRawChangeListWithoutIndex(upstreamList);
+            		List<String> headFileChanges = getRawChangeListWithoutIndex(changeList);
+           		
+            		equals = upstreamFileChanges.equals(headFileChanges);
             		
-            		Collections.sort(headFileChanges);
-            		Collections.sort(upstreamFileChanges);
+            		if(!equals) { // try without index / line moves / whitespaces
+            			upstreamFileChanges = removeUnnecessaryDiffs(upstreamFileChanges);
+            			headFileChanges = removeUnnecessaryDiffs(headFileChanges);
+            			
+            			equals = upstreamFileChanges.equals(headFileChanges);
+            		}
             		
-            		equals = headFileChanges.equals(upstreamFileChanges);
+//            		if("4b2c808d87307e806d0f351ff007bf8cef1c02bc".equals(commit.getId().getName())) {
+//            			try {
+//							Files.writeString(Paths.get(commit.getId().getName()), headFileChanges.stream().collect(Collectors.joining("\r\n")));
+//							if("795bd245aac65fee846eda2bdbb7e1dd95d7aace".equals(entry.getKey().getId().getName())) {
+//							Files.writeString(Paths.get(entry.getKey().getName()), upstreamFileChanges.stream().collect(Collectors.joining("\r\n")));
+//							}
+//	            			System.out.println("files written");
+//						} catch (IOException e) {
+//							e.printStackTrace();
+//						}
+//            		}
             	}
             	
             	return equals;
             }).map(Entry::getKey).findFirst().orElse(null);
             
-            if (matchedCommit != null) {
-            	System.out.println(commit.getId()+" exists " + matchedCommit.getId());
-            }else { 
-            	System.out.println(commit.getId() + " missing, " + commit.getShortMessage());
-            }
+            result.put(commit.getId(), matchedCommit!= null?matchedCommit.getId():null);
+            
+//            if (matchedCommit != null) {
+//            	System.out.println(commit.getId()+" exists " + matchedCommit.getId());
+//            }else { 
+//            	System.out.println(commit.getId() + " missing, " + commit.getShortMessage());
+//            }
     	}
         if (progressMonitor != null) {
             progressMonitor.endTask();
         }
         
-    	return null;
+    	return result;
     }
 
-	private List<String> getRawChangeList(List<ScmItem> changeList) {
-		return changeList.stream().map(i -> {
+	private List<String> removeUnnecessaryDiffs(List<String> upstreamFileChanges) {
+		return upstreamFileChanges.stream().map(content -> content.replaceAll("index [0-9a-z]{7}..[0-9a-z]{7}", "")
+				.replaceAll("@@.+@@", "").replaceAll("\\s", ""))
+				.collect(Collectors.toList());
+	}
+
+	private List<String> getRawChangeListWithoutIndex(List<ScmItem> changeList) {
+		List<String> result = changeList.parallelStream().map(i -> {
 			try {
 				return new String(i.getBody(BODY_TYPE.RAW_DIFF));
 			} catch (IOException e) {
@@ -494,6 +521,10 @@ public class GitRepoService {
 			}
 			return null;
 		}).collect(Collectors.toList());
+		
+		Collections.sort(result);
+		
+		return result;
 	}
     
     private Map<RevCommit, List<ScmItem>> getChangesForCommits(PlotCommitList<PlotLane> commits, final ProgressMonitor progressMonitor){

@@ -2,6 +2,7 @@ package com.az.gitember.controller;
 
 import com.az.gitember.App;
 import com.az.gitember.controller.handlers.CherryEventHandler;
+import com.az.gitember.controller.handlers.CherryEventHandler.CherryData;
 import com.az.gitember.data.*;
 import com.az.gitember.service.Context;
 import com.az.gitember.service.GitemberUtil;
@@ -23,9 +24,14 @@ import javafx.scene.control.*;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Pane;
+
+import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.eclipse.jgit.api.CherryPickResult;
+import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.revplot.PlotCommit;
 import org.eclipse.jgit.revplot.PlotCommitList;
 import org.eclipse.jgit.revplot.PlotLane;
+import org.eclipse.jgit.revwalk.RevCommit;
 import org.kordamp.ikonli.fontawesome.FontAwesome;
 import org.kordamp.ikonli.javafx.FontIcon;
 import org.kordamp.ikonli.javafx.StackedFontIcon;
@@ -33,6 +39,7 @@ import org.kordamp.ikonli.javafx.StackedFontIcon;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.ResourceBundle;
@@ -48,6 +55,7 @@ public class CherryController implements Initializable {
     private final static Logger LOG = Logger.getLogger(CherryController.class.getName());
 
     private final ObservableList<PlotCommit<?>> commits = FXCollections.observableList(new ArrayList<>());
+    private final Map<ObjectId, ObjectId> cherryInfo = new HashMap<>(); 
     
     private static final int HEIGH = 40;
     private int plotWidth = 20 * HEIGH;
@@ -80,6 +88,9 @@ public class CherryController implements Initializable {
 
     @FXML
     private TableView<PlotCommit<?>> commitsTableView;
+    
+    @FXML
+    private ContextMenu cherryMenu;
 
     public SplitPane splitPanel;
     public BorderPane mainBorderPanel;
@@ -121,6 +132,9 @@ public class CherryController implements Initializable {
                                 final Parent commitView = App.loadFXML(Const.View.HISTORY_DETAIL).getFirst();
                                 hostCherryViewPanel.getChildren().clear();
                                 hostCherryViewPanel.getChildren().add(commitView);
+                                
+        						boolean hasCommit = cherryInfo.get(newValue.getId()) != null;
+        						cherryMenu.getItems().forEach(menu -> menu.setDisable(hasCommit));
                             } catch (IOException e) {
                                 e.printStackTrace();
                             }
@@ -197,9 +211,11 @@ public class CherryController implements Initializable {
         		c -> new ObservableValue<StackedFontIcon>() {
 					@Override
 					public StackedFontIcon getValue() {
-						if(c.getValue().getRefCount() > 0) {
+						boolean hasCommit = cherryInfo.get(c.getValue().getId()) != null;
+
+						if(hasCommit) {
 							return GitemberUtil.create(new FontIcon(FontAwesome.PLUS_SQUARE_O));
-						}else {
+						} else {
 							return GitemberUtil.create(new FontIcon(FontAwesome.MINUS_SQUARE_O));
 						}
 					}
@@ -261,46 +277,47 @@ public class CherryController implements Initializable {
         commitsTableView.setItems(commits);
     }
     
-    public void setData(String headBranchName, String upstreamBranchName, PlotCommitList<PlotLane> commits) {
+    public void setData(String headBranchName, String upstreamBranchName, CherryData data) {
     	this.headBranchName = headBranchName;
     	this.upstreamBranchName = upstreamBranchName;
-    	this.commits.addAll(commits);
+    	this.commits.addAll(data.getPlotData());
+    	this.cherryInfo.clear();
+    	this.cherryInfo.putAll(data.getCherryInfo());
     }
     
     public void refreshCommitsClickHandler(ActionEvent actionEvent) {
-    	System.out.println(actionEvent.getSource());
-    	new CherryEventHandler(upstreamBranchName, headBranchName, Integer.parseInt(commitCount.getText())).handle(actionEvent);
+    	new CherryEventHandler(headBranchName, upstreamBranchName, Integer.parseInt(commitCount.getText())).handle(actionEvent);
     	((javafx.stage.Stage)((Button)actionEvent.getSource()).getScene().getWindow()).close();
     }
     
     
     public void cherryPickMenuItemClickHandler(ActionEvent actionEvent) {
-//
-//        final RevCommit revCommit = (RevCommit) commitsTableView.getSelectionModel().getSelectedItem();
-//
-//        final Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
-//        alert.setTitle("Please confirm");
-//        alert.setHeaderText("Cherry pick");
-//        alert.setContentText("Do you really want to apply changes from \n"
-//                + revCommit.getName() + " ?");
-//        alert.initOwner(App.getScene().getWindow());
-//        alert.setWidth(alert.getWidth() * 2);
-//        alert.setHeight(alert.getHeight() * 1.5);
-//
-//        alert.showAndWait().ifPresent( r-> {
-//
-//            try {
-//                if (r == ButtonType.OK) {
-//                    CherryPickResult cherryPickResult = Context.getGitRepoService().cherryPick(revCommit);
-//                }
-//            } catch (IOException e) {
-//                Context.getMain().showResult("Cherry pick is failed ",
-//                        ExceptionUtils.getRootCause(e).getMessage(), Alert.AlertType.ERROR);
-//            } finally {
-//                Context.updateStatus(null);
-//            }
-//
-//        } );
+
+        final RevCommit revCommit = (RevCommit) commitsTableView.getSelectionModel().getSelectedItem();
+
+        final Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Please confirm");
+        alert.setHeaderText("Cherry pick");
+        alert.setContentText("Do you really want to apply changes from \n"
+                + revCommit.getName() + " ?");
+        alert.initOwner(App.getScene().getWindow());
+        alert.setWidth(alert.getWidth() * 2);
+        alert.setHeight(alert.getHeight() * 1.5);
+
+        alert.showAndWait().ifPresent( r-> {
+
+            try {
+                if (r == ButtonType.OK) {
+                    CherryPickResult cherryPickResult = Context.getGitRepoService().cherryPick(revCommit);
+                }
+            } catch (IOException e) {
+                Context.getMain().showResult("Cherry pick is failed ",
+                        ExceptionUtils.getRootCause(e).getMessage(), Alert.AlertType.ERROR);
+            } finally {
+                Context.updateStatus(null);
+            }
+
+        } );
 
     }
 }

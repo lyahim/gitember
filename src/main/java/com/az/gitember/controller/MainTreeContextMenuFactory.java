@@ -95,7 +95,7 @@ public class MainTreeContextMenuFactory {
         if(Context.localBrancesProperty.get().size() > 1 && Context.localBrancesProperty.get().contains(branchItem)) {
 			Menu branchCherryMI = new Menu("Cherry with");
 			fillBranchList(branchCherryMI, Context.localBrancesProperty.get(), branchItem.getFullName(),
-					(branchName, rightBranchName) -> new CherryEventHandler(branchName, rightBranchName, 100));
+					(headBranchName, upstreamBranchName) -> new CherryEventHandler(headBranchName, upstreamBranchName, 100));
 			cm.getItems().add(branchCherryMI);
         }
         

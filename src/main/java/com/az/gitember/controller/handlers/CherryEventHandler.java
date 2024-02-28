@@ -12,16 +12,36 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.control.Alert;
 import org.eclipse.jgit.diff.DiffEntry;
+import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.revplot.PlotCommitList;
 import org.eclipse.jgit.revplot.PlotLane;
+import org.eclipse.jgit.revwalk.RevCommit;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 
 public class CherryEventHandler extends AbstractLongTaskEventHandler implements EventHandler<ActionEvent> {
+	
+	public static class CherryData {
+		private PlotCommitList<PlotLane> plotData;
+		private Map<ObjectId, ObjectId> cherryInfo;
+		
+		public CherryData(PlotCommitList<PlotLane> plotData, Map<ObjectId, ObjectId> cherryInfo) {
+			this.plotData = plotData;
+			this.cherryInfo = cherryInfo;
+		}
+		
+		public PlotCommitList<PlotLane> getPlotData() {
+			return plotData;
+		}
+		public Map<ObjectId, ObjectId> getCherryInfo() {
+			return cherryInfo;
+		}
+	}
 	
 	private final static Logger LOG = Logger.getLogger(CherryEventHandler.class.getName());
 
@@ -37,38 +57,33 @@ public class CherryEventHandler extends AbstractLongTaskEventHandler implements 
 
     @Override
     public void handle(ActionEvent event) {
-        Task<PlotCommitList<PlotLane>> longTask = new Task<PlotCommitList<PlotLane>>() {
+        Task<CherryData> longTask = new Task<CherryData>() {
             @Override
-            protected PlotCommitList<PlotLane> call() throws Exception {
+            protected CherryData call() throws Exception {
             	try {
-//	            	Context.getGitRepoService().cherry(headBranchName, upstreamBranchName, null, new DefaultProgressMonitor((t, d) -> {
-//	                    updateTitle(t);
-//	                    updateProgress(d, 1.0);
-//	                }));
-                	Context.getGitRepoService().cherry(upstreamBranchName, headBranchName, limit, new DefaultProgressMonitor((t, d) -> {
-	                    updateTitle(t);
-	                    updateProgress(d, 1.0);
-	                }));
+                	return new CherryData(Context.getGitRepoService().getCommitsByTree(headBranchName, false, limit, new DefaultProgressMonitor((t, d) -> {
+                        updateTitle(t);
+                        updateProgress(d, 1.0);
+                    })), //
+        			Context.getGitRepoService().cherry(headBranchName, upstreamBranchName, limit, new DefaultProgressMonitor((t, d) -> {
+                        updateTitle(t);
+                        updateProgress(d, 1.0);
+                    })));
             	}catch(Exception e) {
             		LOG.severe(e.getMessage());
             	}
-            	
-            	
-                return Context.getGitRepoService().getCommitsByTree(headBranchName, false, limit, new DefaultProgressMonitor((t, d) -> {
-                    updateTitle(t);
-                    updateProgress(d, 1.0);
-                }));
+            	return null;
             }
         };
 
         launchLongTask(
                 longTask,
                 o -> {
-                	PlotCommitList<PlotLane> commits = (PlotCommitList<PlotLane>) o.getSource().getValue();
+                	CherryData data = (CherryData) o.getSource().getValue();
                     try {
                         CherryController cherryController =
                                 (CherryController) App.loadFXMLToNewStage(Const.View.CHERRY, "Cherry " + headBranchName + " -> " + upstreamBranchName).getSecond();
-                        cherryController.setData(headBranchName, upstreamBranchName, commits);
+                        cherryController.setData(headBranchName, upstreamBranchName, data);
                     } catch (IOException e) {
                     	LOG.severe(e.getMessage());
                     }
