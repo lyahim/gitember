@@ -30,3 +30,4 @@ build/
 *.bak
 
 .settings/
+shade/gitember.jar
