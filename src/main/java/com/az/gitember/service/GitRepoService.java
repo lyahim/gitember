@@ -455,10 +455,17 @@ public class GitRepoService {
                 idx++;
                 progressMonitor.update(idx);
             }
-            
+                      
             List<ScmItem> changeList = headChanges.get(commit.getId());
-    		
+
             RevCommit matchedCommit = upstreamChanges.entrySet().stream().filter(entry -> {
+            	String commitMessage = entry.getKey().getFullMessage();
+            	
+            	// shortcut for commit messages which contains the source sha1
+            	if(commitMessage.toLowerCase().contains(commit.getId().getName().toLowerCase())) {
+            		return true;
+            	}
+            	
             	List<ScmItem> upstreamList = entry.getValue();
             	boolean equals = upstreamList.equals(changeList);
             	
@@ -474,7 +481,7 @@ public class GitRepoService {
             			
             			equals = upstreamFileChanges.equals(headFileChanges);
             		}
-            		
+
 //            		if("4b2c808d87307e806d0f351ff007bf8cef1c02bc".equals(commit.getId().getName())) {
 //            			try {
 //							Files.writeString(Paths.get(commit.getId().getName()), headFileChanges.stream().collect(Collectors.joining("\r\n")));
